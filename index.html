@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>n8n Workflow Diff — Offline</title>
+    <meta name="description"
+        content="Compare n8n workflow JSON files and quickly identify changes, additions, and removals with this offline workflow diff tool." />
+    <meta property="og:title" content="n8n Workflow Diff — Compare Workflows Offline" />
+    <meta property="og:description"
+        content="Compare n8n workflow JSON files and quickly identify changes, additions, and removals with this offline workflow diff tool." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://saravana1283.github.io/n8n-workflow-diff/" />
+    <meta property="og:image" content="https://saravana1283.github.io/n8n-workflow-diff/images/og-image.png" />
+    <link rel="stylesheet" href="./static/css/style.css">
+    <link rel="icon" href="data:image/svg+xml,
+        <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>
+        <text y='.9em' font-size='90'>⚡</text>
+        </svg>">
+</head>
+
+<body>
+    <header class="header">
+        <div class="header-row">
+            <div>
+                <h1>n8n Workflow Diff</h1>
+                <div class="subtitle">Offline workflow comparison — your JSON never leaves this browser</div>
+            </div>
+
+            <div class="header-actions">
+                <button class="btn" onclick="loadExample()">Load Example</button>
+                <button class="btn danger" onclick="resetComparison()">Reset</button>
+                <button id="compareButton" class="btn primary" onclick="compare()">Compare Workflows</button>
+                <button id="themeToggle" class="btn icon-btn" type="button" aria-label="Toggle theme"
+                    onclick="toggleTheme()">☀️</button>
+                <button class="btn" onclick="exportReport()">Export PDF</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container" id="mainContainer">
+        <div id="uploadPanel">
+            <section class="upload-grid">
+                <div class="upload-card">
+                    <h2>🔵 Before workflow</h2>
+
+                    <div class="dropzone" id="dropBefore">
+                        <div>
+                            <strong>Drop n8n JSON here</strong>
+                            or click to select a file
+                            <br /><br />
+                            <button class="btn" onclick="document.getElementById('fileBefore').click()">
+                                Choose JSON
+                            </button>
+                        </div>
+                    </div>
+
+                    <input id="fileBefore" type="file" accept=".json,application/json" hidden />
+                    <div class="file-name" id="nameBefore"></div>
+
+                    <textarea id="jsonBefore" placeholder="Or paste the BEFORE n8n workflow JSON here..."></textarea>
+                </div>
+
+                <div class="upload-card">
+                    <h2>🟠 After workflow</h2>
+
+                    <div class="dropzone" id="dropAfter">
+                        <div>
+                            <strong>Drop n8n JSON here</strong>
+                            or click to select a file
+                            <br /><br />
+                            <button class="btn" onclick="document.getElementById('fileAfter').click()">
+                                Choose JSON
+                            </button>
+                        </div>
+                    </div>
+
+                    <input id="fileAfter" type="file" accept=".json,application/json" hidden />
+                    <div class="file-name" id="nameAfter"></div>
+
+                    <textarea id="jsonAfter" placeholder="Or paste the AFTER n8n workflow JSON here..."></textarea>
+                </div>
+            </section>
+
+            <div class="controls">
+                <label class="checkbox">
+                    <input type="checkbox" id="ignorePosition" checked />
+                    Ignore position changes
+                </label>
+
+                <label class="checkbox">
+                    <input type="checkbox" id="ignoreMeta" checked />
+                    Ignore metadata / UI-only fields
+                </label>
+
+                <label class="checkbox">
+                    <input type="checkbox" id="ignoreCredentials" checked />
+                    Mask credential values
+                </label>
+
+                <div class="status" id="status">Waiting for workflows...</div>
+            </div>
+
+            <div class="error" id="error"></div>
+        </div>
+    </main>
+
+    <section id="output" class="result-container" style="display: none">
+        <div class="stats">
+            <div class="stat">
+                <div class="number green" id="statAdded">0</div>
+                <div class="label">Added</div>
+            </div>
+
+            <div class="stat">
+                <div class="number red" id="statRemoved">0</div>
+                <div class="label">Removed</div>
+            </div>
+
+            <div class="stat">
+                <div class="number yellow" id="statModified">0</div>
+                <div class="label">Modified</div>
+            </div>
+
+            <div class="stat">
+                <div class="number blue" id="statRenamed">0</div>
+                <div class="label">Renamed</div>
+            </div>
+
+            <div class="stat">
+                <div class="number purple" id="statConnections">0</div>
+                <div class="label">Connection changes</div>
+            </div>
+
+            <div class="stat">
+                <div class="number" id="statTotal">0</div>
+                <div class="label">Nodes compared</div>
+            </div>
+        </div>
+
+        <div class="results">
+            <aside class="sidebar">
+                <div class="sidebar-head">
+                    <input class="search" id="nodeSearch" placeholder="Search nodes..." oninput="renderNodeList()" />
+
+                    <div class="filter-row">
+                        <button class="filter active" data-filter="all" onclick="setFilter(this,'all')">
+                            All
+                        </button>
+                        <button class="filter" data-filter="added" onclick="setFilter(this,'added')">
+                            Added
+                        </button>
+                        <button class="filter" data-filter="removed" onclick="setFilter(this,'removed')">
+                            Removed
+                        </button>
+                        <button class="filter" data-filter="modified" onclick="setFilter(this,'modified')">
+                            Modified
+                        </button>
+                        <button class="filter" data-filter="renamed" onclick="setFilter(this,'renamed')">
+                            Renamed
+                        </button>
+                    </div>
+                </div>
+
+                <div class="node-list" id="nodeList"></div>
+            </aside>
+
+            <section class="detail" id="detail">
+                <div class="empty">Select a changed node from the list.</div>
+            </section>
+        </div>
+
+        <div class="graph" id="graphContainer">
+            <div class="graph-header">
+                Workflow graph — changed nodes are highlighted
+
+                <div class="graph-controls">
+                    <button type="button" id="graphZoomIn" title="Zoom In">🔍+ Zoom In</button>
+                    <button type="button" id="graphZoomOut" title="Zoom Out">🔍− Zoom Out</button>
+                    <button type="button" id="graphReset" title="Reset View">🔄 Reset</button>
+                </div>
+            </div>
+
+            <div class="graph-canvas">
+                <svg id="graphSvg" viewBox="0 0 1200 500" xmlns="http://www.w3.org/2000/svg"></svg>
+            </div>
+        </div>
+    </section>
+    </main>
+
+    <script src="./static/js/script.js"></script>
+</body>
+
+</html>
